@@ -30,7 +30,7 @@ dependencies:
 
   myGPIO:
     path: components/basic/myGPIO
-    git: https://github.com/KNaelaerts/ESP32_V6_myref.git
+    git: https://github.com/KNaelaerts/ESP32_V6_pubref.git
 
 ```
 
@@ -43,7 +43,7 @@ dependencies:
 
   myGPIO:
     path: components/basic/myGPIO
-    git: git@github.com:KNaelaerts/ESP32_V6_myref.git
+    git: git@github.com:KNaelaerts/ESP32_V6_pubref.git
 
 ```
 
