@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "myADC.h"
+#include "esp_chip_info.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -14,7 +15,16 @@ static bool channel_ok(int channel)
     return channel >= 0 && channel < MYADC_CHANNEL_COUNT;
 }
 
-void myADC_setup(int channel)
+static bool is_esp32s3(void)
+{
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    return chip_info.model == CHIP_ESP32S3;
+}
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+// Setup for ESP32S3
+static void myADC_setup_esp32s3(int channel)
 {
     if (!channel_ok(channel) || is_setup[channel]) return;
 
@@ -44,6 +54,50 @@ void myADC_setup(int channel)
         cali_handle[channel] = NULL;
     }
     is_setup[channel] = true;
+}
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32
+// Setup for regular ESP32
+static void myADC_setup_esp32(int channel)
+{
+    if (!channel_ok(channel) || is_setup[channel]) return;
+
+    if (unit_handle == NULL) {
+        adc_oneshot_unit_init_cfg_t unit_cfg = {
+            .unit_id = MYADC_UNIT,
+        };
+        if (adc_oneshot_new_unit(&unit_cfg, &unit_handle) != ESP_OK) {
+            unit_handle = NULL;
+            return;
+        }
+    }
+
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten = MYADC_ATTEN,
+        .bitwidth = MYADC_BITWIDTH,
+    };
+    if (adc_oneshot_config_channel(unit_handle, (adc_channel_t)channel, &chan_cfg) != ESP_OK) return;
+
+    adc_cali_line_fitting_config_t cali_cfg = {
+        .unit_id = MYADC_UNIT,
+        .atten = MYADC_ATTEN,
+        .bitwidth = MYADC_BITWIDTH,
+    };
+    if (adc_cali_create_scheme_line_fitting(&cali_cfg, &cali_handle[channel]) != ESP_OK) {
+        cali_handle[channel] = NULL;
+    }
+    is_setup[channel] = true;
+}
+#endif
+
+void myADC_setup(int channel)
+{
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    myADC_setup_esp32s3(channel);
+#elif CONFIG_IDF_TARGET_ESP32
+    myADC_setup_esp32(channel);
+#endif
 }
 
 int myADC_readRaw(int channel)
